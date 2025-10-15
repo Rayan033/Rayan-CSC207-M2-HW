@@ -4,9 +4,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 
 /**
@@ -15,21 +20,50 @@ import java.util.*;
  * exceptions to align with the requirements of the BreedFetcher interface.
  */
 public class DogApiBreedFetcher implements BreedFetcher {
-    private final OkHttpClient client = new OkHttpClient();
 
-    /**
-     * Fetch the list of sub breeds for the given breed from the dog.ceo API.
-     * @param breed the breed to fetch sub breeds for
-     * @return list of sub breeds for the given breed
-     * @throws BreedNotFoundException if the breed does not exist (or if the API call fails for any reason)
-     */
+
     @Override
-    public List<String> getSubBreeds(String breed) {
-        // TODO Task 1: Complete this method based on its provided documentation
-        //      and the documentation for the dog.ceo API. You may find it helpful
-        //      to refer to the examples of using OkHttpClient from the last lab,
-        //      as well as the code for parsing JSON responses.
-        // return statement included so that the starter code can compile and run.
-        return new ArrayList<>();
+    public List<String> getSubBreeds(String breedName) throws BreedNotFoundException {
+        try {
+            String apiUrl = "https://dog.ceo/api/breed/" + breedName + "/list";
+            URL url = new URL(apiUrl);
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("GET");
+
+
+            int status = con.getResponseCode();
+            if (status != 200) {
+                throw new BreedNotFoundException("Breed not found or API error. HTTP status: " + status);
+            }
+
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = in.readLine()) != null) {
+                response.append(line);
+            }
+            in.close();
+            con.disconnect();
+
+
+            JSONObject json = new JSONObject(response.toString());
+            String statusMsg = json.getString("status");
+            if (!statusMsg.equals("success")) {
+                throw new BreedNotFoundException("API did not return success status.");
+            }
+
+
+            JSONArray subBreedsJson = json.getJSONArray("message");
+            List<String> subBreeds = new ArrayList<>();
+            for (int i = 0; i < subBreedsJson.length(); i++) {
+                subBreeds.add(subBreedsJson.getString(i));
+            }
+            return subBreeds;
+
+
+        } catch (IOException | JSONException e) {
+            throw new BreedNotFoundException("Failed to fetch or parse sub-breeds: " + e.getMessage());
+        }
     }
 }
